@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 controller = Controller()
 
 # NOTE: This is the path to your cv file
-CV = Path.cwd() / 'cv_04_24.pdf'
+CV = Path(__file__).parent / 'cv.pdf'
 
 if not CV.exists():
 	raise FileNotFoundError(f'You need to set the path to your cv file in the CV variable. CV file not found at {CV}')

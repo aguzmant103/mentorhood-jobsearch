@@ -120,6 +120,7 @@ export function JobSearchDashboard() {
             onClick={startProcessing}
             disabled={!file || isProcessing}
             className="w-full"
+
           >
             <Play className="mr-2 h-4 w-4" />
             {isProcessing ? 'Procesando...' : 'Iniciar Búsqueda'}
