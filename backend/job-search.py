@@ -12,7 +12,6 @@ from pathlib import Path
 import logging
 from typing import List, Optional
 import asyncio
-import argparse
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -27,22 +26,15 @@ from browser_use.browser.browser import Browser, BrowserConfig
 
 # Validate required environment variables
 load_dotenv()
-required_env_vars = ["OPENAI_API_KEY"]
-for var in required_env_vars:
-    if not os.getenv(var):
-        raise ValueError(f"{var} is not set. Please add it to your environment variables.")
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError("OPENAI_API_KEY is not set. Please add it to your environment variables.")
 
 logger = logging.getLogger(__name__)
 # full screen mode
 controller = Controller()
 
-# Add at the start of the script
-parser = argparse.ArgumentParser()
-parser.add_argument('--cv', type=str, required=True, help='Path to CV file')
-args = parser.parse_args()
-
-# Update CV path
-CV = Path(args.cv)
+# NOTE: This is the path to your cv file
+CV = Path.cwd() / 'cv_04_24.pdf'
 
 if not CV.exists():
 	raise FileNotFoundError(f'You need to set the path to your cv file in the CV variable. CV file not found at {CV}')
@@ -59,14 +51,8 @@ class Job(BaseModel):
 
 @controller.action('Save jobs to file - with a score how well it fits to my profile', param_model=Job)
 def save_jobs(job: Job):
-	# Create absolute path to jobs.csv in the backend directory
-	csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jobs.csv')
-	file_exists = os.path.exists(csv_path)
-	
-	with open(csv_path, 'a', newline='') as f:
+	with open('jobs.csv', 'a', newline='') as f:
 		writer = csv.writer(f)
-		if not file_exists:
-			writer.writerow(['Title', 'Company', 'Link', 'Salary', 'Location'])
 		writer.writerow([job.title, job.company, job.link, job.salary, job.location])
 
 	return 'Saved job to file'
@@ -74,15 +60,8 @@ def save_jobs(job: Job):
 
 @controller.action('Read jobs from file')
 def read_jobs():
-	csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jobs.csv')
-	try:
-		with open(csv_path, 'r') as f:
-			return f.read()
-	except FileNotFoundError:
-		with open(csv_path, 'w', newline='') as f:
-			writer = csv.writer(f)
-			writer.writerow(['Title', 'Company', 'Link', 'Salary', 'Location'])
-		return "Created new jobs.csv file"
+	with open('jobs.csv', 'r') as f:
+		return f.read()
 
 
 @controller.action('Read my cv for context to fill forms')
@@ -136,32 +115,20 @@ browser = Browser(
 
 
 async def main():
-	# ground_task = (
-	# 	'You are a professional job finder. '
-	# 	'1. Read my cv with read_cv'
-	# 	'2. Read the saved jobs file '
-	# 	'3. start applying to the first link of Amazon '
-	# 	'You can navigate through pages e.g. by scrolling '
-	# 	'Make sure to be on the english version of the page'
-	# )
 	ground_task = (
 		'You are a professional job finder. '
 		'1. Read my cv with read_cv'
-		'find solution engineers remote roles and save them to a file'
+		'find Solution Engineer remote roles and save them to a file'
 		'search at company:'
 	)
 	tasks = [
-		ground_task + '\n' + 'Google',
-		# ground_task + '\n' + 'Amazon',
-		# ground_task + '\n' + 'Apple',
-		# ground_task + '\n' + 'Microsoft',
-		# ground_task
-		# + '\n'
-		# + 'go to https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/Taiwan%2C-Remote/Fulfillment-Analyst---New-College-Graduate-2025_JR1988949/apply/autofillWithResume?workerSubType=0c40f6bd1d8f10adf6dae42e46d44a17&workerSubType=ab40a98049581037a3ada55b087049b7 NVIDIA',
-		# ground_task + '\n' + 'Meta',
+		ground_task + '\n' + 'Amazon',
+		ground_task + '\n' + 'Apple',
 	]
+	
 	model = ChatOpenAI(
-		model='gpt-4o',
+		model="gpt-4o",
+		api_key=os.getenv('OPENAI_API_KEY'),
 	)
 
 	agents = []
