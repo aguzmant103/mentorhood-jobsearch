@@ -12,6 +12,9 @@ from pathlib import Path
 import logging
 from typing import List, Optional
 import asyncio
+import websockets
+import json
+from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -51,7 +54,15 @@ class Job(BaseModel):
 
 @controller.action('Save jobs to file - with a score how well it fits to my profile', param_model=Job)
 def save_jobs(job: Job):
-	with open('jobs.csv', 'a', newline='') as f:
+	csv_path = Path(__file__).parent / 'jobs.csv'
+	
+	# Create file with headers if it doesn't exist
+	if not csv_path.exists():
+		with open(csv_path, 'w', newline='') as f:
+			writer = csv.writer(f)
+			writer.writerow(['title', 'company', 'link', 'salary', 'location'])
+	
+	with open(csv_path, 'a', newline='') as f:
 		writer = csv.writer(f)
 		writer.writerow([job.title, job.company, job.link, job.salary, job.location])
 
@@ -137,6 +148,31 @@ async def main():
 		agents.append(agent)
 
 	await asyncio.gather(*[agent.run() for agent in agents])
+
+
+class WebSocketHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.uri = "ws://localhost:3001"
+    
+    def emit(self, record):
+        try:
+            import requests
+            message = self.format(record)
+            requests.post(
+                'http://localhost:3001/logs', 
+                json={
+                    "message": message,
+                    "type": record.levelname.lower(),
+                    "timestamp": datetime.now().isoformat()
+                },
+                timeout=1  # Add timeout
+            )
+        except Exception:
+            # Silently fail if we can't send logs to UI
+            pass
+
+logger.addHandler(WebSocketHandler())
 
 
 if __name__ == "__main__":

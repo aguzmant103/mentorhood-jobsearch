@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Play, Download } from "lucide-react";
@@ -18,14 +18,85 @@ interface SearchResults {
   error?: string;
 }
 
+function useWebSocketLogs() {
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [isConnecting, setIsConnecting] = useState(false);
+  
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
+    
+    const connect = () => {
+      if (isConnecting) return;
+      
+      setIsConnecting(true);
+      
+      try {
+        ws = new WebSocket('ws://localhost:3001');
+        
+        ws.onopen = () => {
+          setIsConnecting(false);
+          console.log('WebSocket connected');
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const log = JSON.parse(event.data);
+            setLogs(prev => [...prev, {
+              message: log.message,
+              timestamp: new Date(log.timestamp),
+              type: log.type as Log["type"]
+            }]);
+          } catch (e) {
+            console.warn('Error parsing WebSocket message:', e);
+          }
+        };
+        
+        ws.onerror = () => {
+          setIsConnecting(false);
+          ws?.close();
+        };
+        
+        ws.onclose = () => {
+          setIsConnecting(false);
+          // Attempt to reconnect after 2 seconds
+          reconnectTimeout = setTimeout(connect, 2000);
+        };
+      } catch (_error) {
+        setIsConnecting(false);
+        // Attempt to reconnect after 2 seconds
+        reconnectTimeout = setTimeout(connect, 2000);
+      }
+    };
+    
+    connect();
+    
+    return () => {
+      clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, []);
+  
+  return logs;
+}
+
 export function JobSearchDashboard() {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [logs, setLogs] = useState<Log[]>([]);
+  const [localLogs, setLocalLogs] = useState<Log[]>([]);
   const [results, setResults] = useState<SearchResults | null>(null);
+  const wsLogs = useWebSocketLogs();
+  
+  const allLogs = useMemo(() => {
+    return [...localLogs, ...wsLogs].sort((a, b) => 
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+  }, [localLogs, wsLogs]);
 
   function addLog(message: string, type: Log["type"] = "info") {
-    setLogs(prev => [...prev, {
+    setLocalLogs(prev => [...prev, {
       message,
       timestamp: new Date(),
       type,
@@ -150,7 +221,7 @@ export function JobSearchDashboard() {
           <h3 className="font-medium mb-4">Registro de Actividad</h3>
           <ScrollArea className="h-[400px] rounded-md border p-4">
             <div className="space-y-3">
-              {logs.map((log, index) => (
+              {allLogs.map((log, index) => (
                 <div 
                   key={index}
                   className={`text-sm p-2 rounded ${
