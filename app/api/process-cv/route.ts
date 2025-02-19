@@ -69,17 +69,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use absolute path to backend directory
+    const publicCsvPath = path.join(process.cwd(), 'public', 'uploads', 'results.csv');
+
     try {
-      // Copy CSV to public directory for download
-      const publicCsvPath = path.join(process.cwd(), 'public', 'uploads', 'results.csv');
       const csvContent = await readFile(csvPath, 'utf-8');
       await writeFile(publicCsvPath, csvContent);
     } catch (error) {
       console.error('Error reading CSV:', error);
-      return NextResponse.json(
-        { error: 'Failed to read results' },
-        { status: 500 }
-      );
+      // Create empty CSV if it doesn't exist
+      const headers = 'Title,Company,Link,Salary,Location\n';
+      await writeFile(csvPath, headers);
+      await writeFile(publicCsvPath, headers);
     }
 
     return NextResponse.json({

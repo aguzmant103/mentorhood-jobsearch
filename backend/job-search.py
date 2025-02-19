@@ -59,12 +59,13 @@ class Job(BaseModel):
 
 @controller.action('Save jobs to file - with a score how well it fits to my profile', param_model=Job)
 def save_jobs(job: Job):
-	file_exists = os.path.exists('jobs.csv')
+	# Create absolute path to jobs.csv in the backend directory
+	csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jobs.csv')
+	file_exists = os.path.exists(csv_path)
 	
-	with open('jobs.csv', 'a', newline='') as f:
+	with open(csv_path, 'a', newline='') as f:
 		writer = csv.writer(f)
 		if not file_exists:
-			# Write headers if file is new
 			writer.writerow(['Title', 'Company', 'Link', 'Salary', 'Location'])
 		writer.writerow([job.title, job.company, job.link, job.salary, job.location])
 
@@ -73,12 +74,12 @@ def save_jobs(job: Job):
 
 @controller.action('Read jobs from file')
 def read_jobs():
+	csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jobs.csv')
 	try:
-		with open('jobs.csv', 'r') as f:
+		with open(csv_path, 'r') as f:
 			return f.read()
 	except FileNotFoundError:
-		# Create the file with headers if it doesn't exist
-		with open('jobs.csv', 'w', newline='') as f:
+		with open(csv_path, 'w', newline='') as f:
 			writer = csv.writer(f)
 			writer.writerow(['Title', 'Company', 'Link', 'Salary', 'Location'])
 		return "Created new jobs.csv file"
