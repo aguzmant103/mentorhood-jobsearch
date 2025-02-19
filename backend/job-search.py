@@ -59,8 +59,13 @@ class Job(BaseModel):
 
 @controller.action('Save jobs to file - with a score how well it fits to my profile', param_model=Job)
 def save_jobs(job: Job):
+	file_exists = os.path.exists('jobs.csv')
+	
 	with open('jobs.csv', 'a', newline='') as f:
 		writer = csv.writer(f)
+		if not file_exists:
+			# Write headers if file is new
+			writer.writerow(['Title', 'Company', 'Link', 'Salary', 'Location'])
 		writer.writerow([job.title, job.company, job.link, job.salary, job.location])
 
 	return 'Saved job to file'
@@ -68,8 +73,15 @@ def save_jobs(job: Job):
 
 @controller.action('Read jobs from file')
 def read_jobs():
-	with open('jobs.csv', 'r') as f:
-		return f.read()
+	try:
+		with open('jobs.csv', 'r') as f:
+			return f.read()
+	except FileNotFoundError:
+		# Create the file with headers if it doesn't exist
+		with open('jobs.csv', 'w', newline='') as f:
+			writer = csv.writer(f)
+			writer.writerow(['Title', 'Company', 'Link', 'Salary', 'Location'])
+		return "Created new jobs.csv file"
 
 
 @controller.action('Read my cv for context to fill forms')
