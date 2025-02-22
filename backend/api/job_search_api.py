@@ -28,30 +28,73 @@ job_searches: Dict[str, dict] = {}
 async def run_job_search(cv_path: str, task_id: str):
     try:
         logger.info(f"Starting job search with CV: {cv_path}")
-        # Run the job search script
+        
+        # Create process with pipe for real-time output
         process = await asyncio.create_subprocess_exec(
             "python", 
             "backend/job-search.py",
             "--cv", cv_path,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            env={
+                **os.environ,
+                "PYTHONUNBUFFERED": "1"
+            }
         )
         
-        stdout, stderr = await process.communicate()
+        # Handle output streams asynchronously
+        async def read_stream(stream, is_error: bool):
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                line_str = line.decode().strip()
+                if line_str:
+                    # Update logs in real-time
+                    current_logs = job_searches[task_id].get("logs", "")
+                    prefix = "ERROR: " if is_error else "INFO: "
+                    job_searches[task_id]["logs"] = current_logs + prefix + line_str + "\n"
+                    if is_error:
+                        logger.error(line_str)
+                    else:
+                        logger.info(line_str)
+
+        # Create tasks for reading stdout and stderr
+        stdout_task = asyncio.create_task(read_stream(process.stdout, False))
+        stderr_task = asyncio.create_task(read_stream(process.stderr, True))
         
-        # Update task status
-        if process.returncode == 0:
-            job_searches[task_id]["status"] = "completed"
-            job_searches[task_id]["logs"] = stdout.decode() + stderr.decode()
-            logger.info(f"Job search completed for task {task_id}")
-        else:
+        try:
+            # Wait for process to complete with timeout
+            await asyncio.wait_for(process.wait(), timeout=300.0)  # 5 minute timeout
+            
+            # Wait for output reading to complete
+            await stdout_task
+            await stderr_task
+            
+            # Update final status
+            if process.returncode == 0:
+                job_searches[task_id]["status"] = "completed"
+                logger.info(f"Job search completed for task {task_id}")
+            else:
+                job_searches[task_id]["status"] = "failed"
+                job_searches[task_id]["error"] = f"Process failed with code {process.returncode}"
+                logger.error(f"Job search failed for task {task_id}")
+                
+        except asyncio.TimeoutError:
+            # Kill the process if it times out
+            try:
+                process.kill()
+                stdout_task.cancel()
+                stderr_task.cancel()
+            except:
+                pass
             job_searches[task_id]["status"] = "failed"
-            job_searches[task_id]["error"] = stderr.decode()
-            logger.error(f"Job search failed for task {task_id}: {stderr.decode()}")
+            job_searches[task_id]["error"] = "Job search timed out after 5 minutes"
+            logger.error(f"Job search timed out for task {task_id}")
             
     except Exception as e:
         job_searches[task_id]["status"] = "failed"
-        job_searches[task_id]["error"] = str(e)
+        job_searches[task_id]["error"] = f"Error: {str(e)}\nTraceback: {traceback.format_exc()}"
         logger.error(f"Error in job search task {task_id}: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
 
