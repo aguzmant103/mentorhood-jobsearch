@@ -24,4 +24,4 @@ ENV CHROME_PATH=/usr/bin/chromium
 ENV PORT=${PORT:-8000}
 
 # Command to run the application
-CMD uvicorn backend.health:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75 
+CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75 
