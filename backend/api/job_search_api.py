@@ -1,12 +1,11 @@
-from fastapi import APIRouter, HTTPException, UploadFile, BackgroundTasks, Request
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 import subprocess
 import os
 import csv
-from pathlib import Path
 import asyncio
 import logging
-from typing import Optional, Dict
+from typing import Dict
 
 # Configure logging
 logging.basicConfig(
@@ -15,13 +14,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Create router with explicit prefix
+router = APIRouter(prefix="/test")
 
 # Store background tasks and their status
 job_searches: Dict[str, dict] = {}
 
 async def run_job_search(companies: list[str], task_id: str):
     try:
+        logger.info(f"Starting job search for companies: {companies}")
         # Run the job search script
         process = await asyncio.create_subprocess_exec(
             "python", 
@@ -37,16 +38,18 @@ async def run_job_search(companies: list[str], task_id: str):
         if process.returncode == 0:
             job_searches[task_id]["status"] = "completed"
             job_searches[task_id]["logs"] = stdout.decode() + stderr.decode()
+            logger.info(f"Job search completed for task {task_id}")
         else:
             job_searches[task_id]["status"] = "failed"
             job_searches[task_id]["error"] = stderr.decode()
+            logger.error(f"Job search failed for task {task_id}: {stderr.decode()}")
             
     except Exception as e:
         job_searches[task_id]["status"] = "failed"
         job_searches[task_id]["error"] = str(e)
         logger.error(f"Error in job search task {task_id}: {str(e)}")
 
-@router.post("/test/job")
+@router.post("/job")
 async def start_job_search(
     request: Request,
     background_tasks: BackgroundTasks
@@ -55,6 +58,8 @@ async def start_job_search(
         # Get companies from request body
         body = await request.json()
         companies = body.get("companies", ["Google"])  # Default to Google if not specified
+        
+        logger.info(f"Received job search request for companies: {companies}")
         
         # Generate unique task ID
         task_id = os.urandom(8).hex()
@@ -80,8 +85,10 @@ async def start_job_search(
         logger.error(f"Error starting job search: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/test/job/{task_id}")
+@router.get("/job/{task_id}")
 async def get_job_search_status(task_id: str):
+    logger.info(f"Checking status for task {task_id}")
+    
     if task_id not in job_searches:
         raise HTTPException(status_code=404, detail="Task not found")
     
@@ -114,8 +121,10 @@ async def get_job_search_status(task_id: str):
         "jobs": jobs if jobs else None
     }
 
-@router.delete("/test/job/{task_id}")
+@router.delete("/job/{task_id}")
 async def cleanup_job_search(task_id: str):
+    logger.info(f"Cleaning up task {task_id}")
+    
     if task_id not in job_searches:
         raise HTTPException(status_code=404, detail="Task not found")
     
