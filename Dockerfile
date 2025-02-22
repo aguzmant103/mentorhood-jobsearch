@@ -23,5 +23,9 @@ COPY . .
 ENV CHROME_PATH=/usr/bin/chromium
 ENV PORT=${PORT:-8000}
 
+# Make start script executable
+COPY backend/start.sh .
+RUN chmod +x start.sh
+
 # Command to run the application
-CMD uvicorn backend.health:app --host 0.0.0.0 --port $PORT 
+CMD ["./start.sh"] 
