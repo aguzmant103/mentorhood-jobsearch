@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from api.job_search_api import router as job_search_router
-from health import router as health_router
+from backend.api.job_search_api import router as job_search_router
+from backend.health import router as health_router
 import logging
 import traceback
 
@@ -21,22 +21,18 @@ app = FastAPI(
     redoc_url="/redoc"  # Enable ReDoc
 )
 
-# Configure CORS
+# Configure CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this in production
+    allow_origins=["*"],  # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(health_router)  # Mount health router at root
-app.include_router(
-    job_search_router,
-    prefix="/api",  # Add /api prefix for job search routes
-    tags=["job-search"]
-)
+app.include_router(health_router, tags=["Health"])
+app.include_router(job_search_router, prefix="/api", tags=["Job Search"])
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

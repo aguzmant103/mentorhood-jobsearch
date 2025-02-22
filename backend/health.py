@@ -12,8 +12,5 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/health")
-async def health():
-    return {
-        "status": "healthy",
-        "port": os.getenv("PORT", "8000")
-    }
+async def health_check():
+    return {"status": "healthy", "message": "Service is running"}

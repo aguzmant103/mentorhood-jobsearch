@@ -6,7 +6,8 @@ import csv
 import asyncio
 import logging
 import traceback
-from typing import Dict
+from typing import Dict, List, Optional
+from pydantic import BaseModel
 
 # Configure logging
 logging.basicConfig(
@@ -23,6 +24,18 @@ router = APIRouter(
 
 # Store background tasks and their status
 job_searches: Dict[str, dict] = {}
+
+class JobSearchQuery(BaseModel):
+    job_title: str
+    location: Optional[str] = None
+    keywords: Optional[List[str]] = None
+
+class JobListing(BaseModel):
+    title: str
+    company: str
+    location: str
+    description: str
+    url: str
 
 async def run_job_search(companies: list[str], task_id: str):
     try:
@@ -187,4 +200,43 @@ async def debug_routes():
         "routes": routes,
         "prefix": router.prefix,
         "tags": router.tags
-    } 
+    }
+
+@router.post("/search", response_model=List[JobListing])
+async def search_jobs(query: JobSearchQuery):
+    """
+    Search for jobs based on title, location, and keywords
+    """
+    # Mock response for testing
+    mock_jobs = [
+        JobListing(
+            title="Senior Python Developer",
+            company="Tech Corp",
+            location="Remote",
+            description="Looking for a senior Python developer with FastAPI experience",
+            url="https://example.com/job1"
+        ),
+        JobListing(
+            title="Full Stack Developer",
+            company="Startup Inc",
+            location="New York",
+            description="Full stack role with Python and React",
+            url="https://example.com/job2"
+        )
+    ]
+    return mock_jobs
+
+@router.get("/recent", response_model=List[JobListing])
+async def get_recent_jobs():
+    """
+    Get most recent job listings
+    """
+    return [
+        JobListing(
+            title="Backend Engineer",
+            company="Innovation Labs",
+            location="San Francisco",
+            description="Backend role with Python and FastAPI",
+            url="https://example.com/job3"
+        )
+    ] 
