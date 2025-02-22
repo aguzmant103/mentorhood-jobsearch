@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
@@ -15,18 +15,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+router = APIRouter()
 
 @app.get("/")
 async def root():
     logger.info("Root endpoint called")
     return {"message": "Job Search API is running"}
 
-@app.get("/health")
-async def health_check():
-    logger.info("Health check endpoint called")
+@router.get("/health")
+async def health():
     return {
         "status": "healthy",
-        "port": os.getenv("PORT", "not set")
+        "port": os.getenv("PORT", "8000")
     }
 
 @app.exception_handler(Exception)

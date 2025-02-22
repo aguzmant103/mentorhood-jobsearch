@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from api.job_search_api import router as job_search_router
+from health import router as health_router
 import logging
 import traceback
 
@@ -29,10 +30,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers - explicitly mount at /
+# Include routers
+app.include_router(health_router)  # Mount health router at root
 app.include_router(
     job_search_router,
-    prefix="",  # This ensures routes are mounted at root
+    prefix="/api",  # Add /api prefix for job search routes
     tags=["job-search"]
 )
 
