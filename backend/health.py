@@ -1,11 +1,7 @@
 import logging
 import os
 import sys
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi import FastAPI
 
 # Configure logging
 logging.basicConfig(
@@ -17,24 +13,18 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.get("/")
+async def root():
+    logger.info("Root endpoint called")
+    return {"message": "Job Search API is running"}
 
-@app.on_event("startup")
-async def startup_event():
-    try:
-        port = os.getenv("PORT", 8080)
-        logger.info(f"Starting application on port {port}")
-        logger.info(f"Environment: {os.getenv('RAILWAY_ENVIRONMENT', 'development')}")
-    except Exception as e:
-        logger.error(f"Startup error: {str(e)}")
-        raise
+@app.get("/health")
+async def health_check():
+    logger.info("Health check endpoint called")
+    return {
+        "status": "healthy",
+        "port": os.getenv("PORT", "not set")
+    }
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
@@ -54,28 +44,6 @@ class Job(BaseModel):
 class JobSearchResponse(BaseModel):
     jobs: List[Job]
     message: str
-
-@app.get("/")
-async def root():
-    try:
-        logger.info("Root endpoint called")
-        return {"message": "Job Search API is running"}
-    except Exception as e:
-        logger.error(f"Error in root endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/health")
-async def health_check():
-    try:
-        logger.info("Health check endpoint called")
-        return {
-            "status": "healthy",
-            "environment": os.getenv("RAILWAY_ENVIRONMENT", "development"),
-            "port": os.getenv("PORT", 8080)
-        }
-    except Exception as e:
-        logger.error(f"Error in health check: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test/jobs", response_model=JobSearchResponse)
 async def test_jobs():

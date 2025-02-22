@@ -21,15 +21,7 @@ COPY . .
 
 # Set environment variables
 ENV CHROME_PATH=/usr/bin/chromium
-ENV PORT=8080
-ENV RAILWAY_ENVIRONMENT=production
-
-# Make start script executable
-COPY backend/start.sh .
-RUN chmod +x start.sh
-
-# Expose the port
-EXPOSE 8080
+ENV PORT=${PORT:-8000}
 
 # Command to run the application
-CMD uvicorn backend.health:app --host 0.0.0.0 --port 8080 --workers 4 
+CMD uvicorn backend.health:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75 
