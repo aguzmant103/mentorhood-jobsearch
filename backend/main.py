@@ -1,7 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from api.job_search_api import router as job_search_router
 import logging
+import traceback
 
 # Configure logging
 logging.basicConfig(
@@ -27,6 +29,21 @@ app.add_middleware(
 
 # Include routers
 app.include_router(job_search_router)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Incoming request: {request.method} {request.url}")
+    try:
+        response = await call_next(request)
+        logger.info(f"Response status: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"Request failed: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e), "traceback": traceback.format_exc()}
+        )
 
 @app.get("/")
 async def root():
