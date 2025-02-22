@@ -17,5 +17,5 @@ def test_endpoints(base_url):
             print(f"Error testing {endpoint}: {str(e)}")
 
 if __name__ == "__main__":
-    base_url = "https://mentorhood-jobsearch-production.up.railway.app"
+    base_url = "https://mentorhood-jobsearch-production.up.railway.app"  # No need to specify port in URL
     test_endpoints(base_url) 
