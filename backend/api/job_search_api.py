@@ -1,13 +1,12 @@
-from fastapi import APIRouter, HTTPException, UploadFile, BackgroundTasks
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import APIRouter, HTTPException, UploadFile, BackgroundTasks, Request
+from fastapi.responses import JSONResponse
 import subprocess
 import os
-import io
 import csv
 from pathlib import Path
 import asyncio
-from typing import Optional
 import logging
+from typing import Optional, Dict
 
 # Configure logging
 logging.basicConfig(
@@ -19,18 +18,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Store background tasks and their status
-job_searches = {}
+job_searches: Dict[str, dict] = {}
 
-async def run_job_search(cv_path: str, task_id: str):
+async def run_job_search(companies: list[str], task_id: str):
     try:
-        # Create a temporary directory for logs
-        log_file = f"job_search_{task_id}.log"
-        
         # Run the job search script
         process = await asyncio.create_subprocess_exec(
             "python", 
             "backend/job-search.py",
-            "--cv", cv_path,
+            "--companies", ",".join(companies),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -50,95 +46,83 @@ async def run_job_search(cv_path: str, task_id: str):
         job_searches[task_id]["error"] = str(e)
         logger.error(f"Error in job search task {task_id}: {str(e)}")
 
-@router.post("/job-search/start")
+@router.post("/test/job")
 async def start_job_search(
-    background_tasks: BackgroundTasks,
-    cv_file: UploadFile
+    request: Request,
+    background_tasks: BackgroundTasks
 ):
     try:
+        # Get companies from request body
+        body = await request.json()
+        companies = body.get("companies", ["Google"])  # Default to Google if not specified
+        
         # Generate unique task ID
         task_id = os.urandom(8).hex()
-        
-        # Save CV file temporarily
-        cv_path = f"temp_cv_{task_id}.pdf"
-        with open(cv_path, "wb") as f:
-            f.write(await cv_file.read())
         
         # Initialize task status
         job_searches[task_id] = {
             "status": "running",
-            "cv_path": cv_path,
+            "companies": companies,
             "logs": "",
             "error": None
         }
         
         # Start background task
-        background_tasks.add_task(run_job_search, cv_path, task_id)
+        background_tasks.add_task(run_job_search, companies, task_id)
         
-        return {"task_id": task_id, "status": "started"}
+        return {
+            "task_id": task_id, 
+            "status": "started",
+            "message": f"Started job search for companies: {', '.join(companies)}"
+        }
         
     except Exception as e:
         logger.error(f"Error starting job search: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/job-search/{task_id}/status")
+@router.get("/test/job/{task_id}")
 async def get_job_search_status(task_id: str):
     if task_id not in job_searches:
         raise HTTPException(status_code=404, detail="Task not found")
     
+    task_info = job_searches[task_id]
+    
+    # Read CSV file if task is completed
+    jobs = []
+    if task_info["status"] == "completed":
+        try:
+            csv_file = "jobs.csv"
+            if os.path.exists(csv_file):
+                with open(csv_file, "r") as f:
+                    reader = csv.reader(f)
+                    for row in reader:
+                        jobs.append({
+                            "title": row[0],
+                            "company": row[1],
+                            "link": row[2],
+                            "salary": row[3],
+                            "location": row[4]
+                        })
+        except Exception as e:
+            logger.error(f"Error reading CSV: {str(e)}")
+    
     return {
-        "status": job_searches[task_id]["status"],
-        "error": job_searches[task_id].get("error"),
-        "logs": job_searches[task_id].get("logs", "")
+        "status": task_info["status"],
+        "error": task_info.get("error"),
+        "logs": task_info.get("logs", ""),
+        "companies": task_info["companies"],
+        "jobs": jobs if jobs else None
     }
 
-@router.get("/job-search/{task_id}/results")
-async def get_job_search_results(task_id: str):
-    if task_id not in job_searches:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    if job_searches[task_id]["status"] != "completed":
-        raise HTTPException(status_code=400, detail="Job search not completed")
-    
-    try:
-        # Read CSV file
-        csv_file = "jobs.csv"
-        if not os.path.exists(csv_file):
-            return {"jobs": []}
-            
-        jobs = []
-        with open(csv_file, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                jobs.append({
-                    "title": row[0],
-                    "company": row[1],
-                    "link": row[2],
-                    "salary": row[3],
-                    "location": row[4]
-                })
-        
-        return {"jobs": jobs}
-        
-    except Exception as e:
-        logger.error(f"Error reading results: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.delete("/job-search/{task_id}")
+@router.delete("/test/job/{task_id}")
 async def cleanup_job_search(task_id: str):
     if task_id not in job_searches:
         raise HTTPException(status_code=404, detail="Task not found")
     
     try:
-        # Clean up temporary files
-        cv_path = job_searches[task_id]["cv_path"]
-        if os.path.exists(cv_path):
-            os.remove(cv_path)
-            
         # Remove task from memory
         del job_searches[task_id]
-        
-        return {"status": "cleaned"}
+        return {"status": "cleaned", "message": f"Task {task_id} cleaned up successfully"}
         
     except Exception as e:
         logger.error(f"Error cleaning up: {str(e)}")
