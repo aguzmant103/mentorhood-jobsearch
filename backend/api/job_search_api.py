@@ -16,7 +16,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create router with explicit prefix
-router = APIRouter(tags=["job-search"])
+router = APIRouter(
+    prefix="/test",  # This will be prepended to all routes
+    tags=["job-search"],
+    responses={404: {"description": "Not found"}},
+)
 
 # Store background tasks and their status
 job_searches: Dict[str, dict] = {}
@@ -51,7 +55,7 @@ async def run_job_search(companies: list[str], task_id: str):
         logger.error(f"Error in job search task {task_id}: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
 
-@router.post("/test/job")
+@router.post("/job")
 async def start_job_search(
     request: Request,
     background_tasks: BackgroundTasks
@@ -106,7 +110,7 @@ async def start_job_search(
             }
         )
 
-@router.get("/test/job/{task_id}")
+@router.get("/job/{task_id}")
 async def get_job_search_status(task_id: str):
     logger.info(f"Checking status for task {task_id}")
     
@@ -148,7 +152,7 @@ async def get_job_search_status(task_id: str):
         "jobs": jobs if jobs else None
     }
 
-@router.delete("/test/job/{task_id}")
+@router.delete("/job/{task_id}")
 async def cleanup_job_search(task_id: str):
     logger.info(f"Cleaning up task {task_id}")
     

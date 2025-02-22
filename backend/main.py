@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Job Search API",
     description="API for automated job searching and application",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",   # Enable Swagger UI
+    redoc_url="/redoc"  # Enable ReDoc
 )
 
 # Configure CORS
@@ -27,12 +29,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(job_search_router)
+# Include routers - explicitly mount at /
+app.include_router(
+    job_search_router,
+    prefix="",  # This ensures routes are mounted at root
+    tags=["job-search"]
+)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    logger.info(f"Incoming request: {request.method} {request.url}")
+    logger.info(f"Incoming request: {request.method} {request.url.path}")
+    logger.info(f"Available routes: {[route.path for route in app.routes]}")
     try:
         response = await call_next(request)
         logger.info(f"Response status: {response.status_code}")
@@ -47,10 +54,12 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/")
 async def root():
+    routes = [{"path": route.path, "methods": route.methods} for route in app.routes]
     return {
         "status": "healthy",
         "message": "Job Search API is running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "available_routes": routes
     }
 
 # Log startup
