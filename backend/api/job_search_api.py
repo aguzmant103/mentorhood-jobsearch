@@ -170,4 +170,21 @@ async def cleanup_job_search(task_id: str):
         error_msg = f"Error cleaning up task {task_id}: {str(e)}"
         logger.error(error_msg)
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=error_msg) 
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@router.get("/debug-routes")
+async def debug_routes():
+    """Helper endpoint to debug available routes"""
+    routes = []
+    for route in router.routes:
+        routes.append({
+            "path": route.path,
+            "name": route.name,
+            "methods": route.methods
+        })
+    logger.info(f"Available routes in job_search_router: {routes}")
+    return {
+        "routes": routes,
+        "prefix": router.prefix,
+        "tags": router.tags
+    } 

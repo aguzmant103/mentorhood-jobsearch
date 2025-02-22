@@ -59,7 +59,7 @@ async def root():
     routes = [{"path": route.path, "methods": route.methods} for route in app.routes]
     return {
         "status": "healthy",
-        "message": "Job Search API is running",
+        "message": "Job Search API is runninggss",
         "version": "1.0.0",
         "available_routes": routes
     }
