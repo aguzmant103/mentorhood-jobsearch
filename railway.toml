@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "python backend/job-search.py --cv backend/CV.PDF"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3 
