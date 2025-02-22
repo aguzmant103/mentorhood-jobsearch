@@ -32,7 +32,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health_router, tags=["Health"])
-app.include_router(job_search_router, prefix="/api", tags=["Job Search"])
+app.include_router(job_search_router, prefix="/api")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

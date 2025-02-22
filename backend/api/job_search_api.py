@@ -6,7 +6,7 @@ import csv
 import asyncio
 import logging
 import traceback
-from typing import Dict, List, Optional
+from typing import Dict, List
 from pydantic import BaseModel
 
 # Configure logging
@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create router with explicit prefix
+# Create router
 router = APIRouter(
     tags=["job-search"],
     responses={404: {"description": "Not found"}},
@@ -25,26 +25,14 @@ router = APIRouter(
 # Store background tasks and their status
 job_searches: Dict[str, dict] = {}
 
-class JobSearchQuery(BaseModel):
-    job_title: str
-    location: Optional[str] = None
-    keywords: Optional[List[str]] = None
-
-class JobListing(BaseModel):
-    title: str
-    company: str
-    location: str
-    description: str
-    url: str
-
-async def run_job_search(companies: list[str], task_id: str):
+async def run_job_search(cv_path: str, task_id: str):
     try:
-        logger.info(f"Starting job search for companies: {companies}")
+        logger.info(f"Starting job search with CV: {cv_path}")
         # Run the job search script
         process = await asyncio.create_subprocess_exec(
             "python", 
             "backend/job-search.py",
-            "--companies", ",".join(companies),
+            "--cv", cv_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -67,21 +55,19 @@ async def run_job_search(companies: list[str], task_id: str):
         logger.error(f"Error in job search task {task_id}: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
 
-@router.post("/test/job")
+class JobSearchRequest(BaseModel):
+    cv_path: str
+
+@router.post("/search")
 async def start_job_search(
-    request: Request,
+    request: JobSearchRequest,
     background_tasks: BackgroundTasks
 ):
     try:
-        logger.info(f"Received request to {request.url}")
-        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Starting job search with CV: {request.cv_path}")
         
-        # Get companies from request body
-        body = await request.json()
-        logger.info(f"Request body: {body}")
-        
-        companies = body.get("companies", ["Google"])
-        logger.info(f"Processing job search request for companies: {companies}")
+        if not os.path.exists(request.cv_path):
+            raise HTTPException(status_code=400, detail=f"CV file not found at {request.cv_path}")
         
         # Generate unique task ID
         task_id = os.urandom(8).hex()
@@ -90,46 +76,35 @@ async def start_job_search(
         # Initialize task status
         job_searches[task_id] = {
             "status": "running",
-            "companies": companies,
+            "cv_path": request.cv_path,
             "logs": "",
             "error": None
         }
         
         # Start background task
-        background_tasks.add_task(run_job_search, companies, task_id)
+        background_tasks.add_task(run_job_search, request.cv_path, task_id)
         logger.info(f"Started background task for {task_id}")
         
         return {
             "task_id": task_id, 
             "status": "started",
-            "message": f"Started job search for companies: {', '.join(companies)}"
+            "message": f"Started job search with CV: {request.cv_path}"
         }
         
+    except HTTPException as he:
+        raise he
     except Exception as e:
         error_msg = f"Error starting job search: {str(e)}"
         logger.error(error_msg)
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": str(e),
-                "traceback": traceback.format_exc(),
-                "request_info": {
-                    "url": str(request.url),
-                    "method": request.method,
-                    "headers": dict(request.headers)
-                }
-            }
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/test/job/{task_id}")
+@router.get("/search/{task_id}")
 async def get_job_search_status(task_id: str):
     logger.info(f"Checking status for task {task_id}")
     
     if task_id not in job_searches:
-        error_msg = f"Task not found: {task_id}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=404, detail=error_msg)
+        raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
     
     task_info = job_searches[task_id]
     logger.info(f"Task info: {task_info}")
@@ -152,91 +127,12 @@ async def get_job_search_status(task_id: str):
                         })
                 logger.info(f"Found {len(jobs)} jobs for task {task_id}")
         except Exception as e:
-            error_msg = f"Error reading CSV: {str(e)}"
-            logger.error(error_msg)
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Error reading CSV: {str(e)}")
     
     return {
         "status": task_info["status"],
         "error": task_info.get("error"),
         "logs": task_info.get("logs", ""),
-        "companies": task_info["companies"],
+        "cv_path": task_info["cv_path"],
         "jobs": jobs if jobs else None
-    }
-
-@router.delete("/test/job/{task_id}")
-async def cleanup_job_search(task_id: str):
-    logger.info(f"Cleaning up task {task_id}")
-    
-    if task_id not in job_searches:
-        error_msg = f"Task not found: {task_id}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=404, detail=error_msg)
-    
-    try:
-        # Remove task from memory
-        del job_searches[task_id]
-        logger.info(f"Successfully cleaned up task {task_id}")
-        return {"status": "cleaned", "message": f"Task {task_id} cleaned up successfully"}
-        
-    except Exception as e:
-        error_msg = f"Error cleaning up task {task_id}: {str(e)}"
-        logger.error(error_msg)
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=error_msg)
-
-@router.get("/debug-routes")
-async def debug_routes():
-    """Helper endpoint to debug available routes"""
-    routes = []
-    for route in router.routes:
-        routes.append({
-            "path": route.path,
-            "name": route.name,
-            "methods": route.methods
-        })
-    logger.info(f"Available routes in job_search_router: {routes}")
-    return {
-        "routes": routes,
-        "prefix": router.prefix,
-        "tags": router.tags
-    }
-
-@router.post("/search", response_model=List[JobListing])
-async def search_jobs(query: JobSearchQuery):
-    """
-    Search for jobs based on title, location, and keywords
-    """
-    # Mock response for testing
-    mock_jobs = [
-        JobListing(
-            title="Senior Python Developer",
-            company="Tech Corp",
-            location="Remote",
-            description="Looking for a senior Python developer with FastAPI experience",
-            url="https://example.com/job1"
-        ),
-        JobListing(
-            title="Full Stack Developer",
-            company="Startup Inc",
-            location="New York",
-            description="Full stack role with Python and React",
-            url="https://example.com/job2"
-        )
-    ]
-    return mock_jobs
-
-@router.get("/recent", response_model=List[JobListing])
-async def get_recent_jobs():
-    """
-    Get most recent job listings
-    """
-    return [
-        JobListing(
-            title="Backend Engineer",
-            company="Innovation Labs",
-            location="San Francisco",
-            description="Backend role with Python and FastAPI",
-            url="https://example.com/job3"
-        )
-    ] 
+    } 
