@@ -43,15 +43,12 @@ ENV PORT=${PORT:-8000}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 
-# Add a script to start Chrome in debug mode
-COPY start-chrome.sh /app/
-RUN chmod +x /app/start-chrome.sh
-
-# Create the start-chrome.sh script
+# Create and configure the start-chrome script
 RUN echo '#!/bin/bash\n\
 chromium --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 $BROWSER_USE_ARGS &\n\
 sleep 2\n\
-exec uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75' > /app/start-chrome.sh
+exec uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75' > /app/start-chrome.sh \
+    && chmod +x /app/start-chrome.sh
 
 # Change the CMD to use the start script
 CMD ["/app/start-chrome.sh"] 
