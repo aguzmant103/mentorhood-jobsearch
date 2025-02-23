@@ -122,8 +122,13 @@ async def upload_cv(index: int, browser: BrowserContext):
 
 browser = Browser(
 	config=BrowserConfig(
-		chrome_instance_path=os.getenv('CHROME_PATH', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),
-		disable_security=True,
+		chrome_instance_path=os.getenv('CHROME_PATH', '/usr/bin/chromium'),
+		headless=True,
+		launch_args=[
+			'--remote-debugging-port=9222',
+			'--no-sandbox',
+			'--disable-dev-shm-usage'
+		]
 	)
 )
 
