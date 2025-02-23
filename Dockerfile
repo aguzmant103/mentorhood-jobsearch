@@ -37,11 +37,21 @@ COPY . .
 # Set environment variables
 ENV CHROME_PATH=/usr/bin/chromium
 ENV BROWSER_USE_CHROME_PATH=/usr/bin/chromium
-ENV BROWSER_USE_ARGS="--no-sandbox --disable-dev-shm-usage --headless --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --disable-gpu"
+ENV BROWSER_USE_ARGS="--no-sandbox --disable-dev-shm-usage --headless --disable-gpu"
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PORT=${PORT:-8000}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 
-# Command to run the application
-CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75 
+# Add a script to start Chrome in debug mode
+COPY start-chrome.sh /app/
+RUN chmod +x /app/start-chrome.sh
+
+# Create the start-chrome.sh script
+RUN echo '#!/bin/bash\n\
+chromium --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 $BROWSER_USE_ARGS &\n\
+sleep 2\n\
+exec uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75' > /app/start-chrome.sh
+
+# Change the CMD to use the start script
+CMD ["/app/start-chrome.sh"] 

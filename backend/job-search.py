@@ -125,11 +125,10 @@ browser = Browser(
 		chrome_instance_path=os.getenv('BROWSER_USE_CHROME_PATH', '/usr/bin/chromium'),
 		headless=True,
 		disable_security=True,
+		cdp_url='http://0.0.0.0:9222',  # Specify CDP URL directly
 		extra_chromium_args=[
 			"--no-sandbox",
 			"--disable-dev-shm-usage",
-			"--remote-debugging-port=9222",
-			"--remote-debugging-address=0.0.0.0",
 			"--disable-gpu"
 		]
 	)
