@@ -122,8 +122,8 @@ async def upload_cv(index: int, browser: BrowserContext):
 
 browser = Browser(
 	config=BrowserConfig(
-		chrome_path=os.getenv('BROWSER_USE_CHROME_PATH', '/usr/bin/chromium'),
-		args=os.getenv('BROWSER_USE_ARGS', '--no-sandbox --disable-dev-shm-usage --headless').split(),
+		chrome_instance_path=os.getenv('BROWSER_USE_CHROME_PATH', '/usr/bin/chromium'),
+		disable_security=True,  # This will handle the security flags internally
 		headless=True
 	)
 )
