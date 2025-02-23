@@ -1,29 +1,43 @@
-# Use Node.js base image since it's more lightweight than Python for Playwright
-FROM mcr.microsoft.com/playwright:v1.42.1-jammy
+# Use Python 3.11 slim image
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install Python and pip
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    python3.11 \
-    python3-pip \
+    chromium \
+    chromium-driver \
+    git \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install wheel
+RUN python -m pip install --upgrade pip wheel setuptools
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Install packages one by one to better identify any issues
+RUN pip install --no-cache-dir python-dotenv>=0.19.0 && \
+    pip install --no-cache-dir PyPDF2>=3.0.1 && \
+    pip install --no-cache-dir langchain-openai==0.3.1 && \
+    pip install --no-cache-dir playwright>=1.41.0 && \
+    pip install --no-cache-dir pydantic>=2.0.0 && \
+    pip install --no-cache-dir fastapi>=0.68.0 && \
+    pip install --no-cache-dir "uvicorn[standard]>=0.15.0" && \
+    pip install --no-cache-dir requests>=2.31.0 && \
+    pip install --no-cache-dir browser-use==0.1.39
+
+# Install playwright browsers
+RUN playwright install chromium
+RUN playwright install-deps
 
 # Copy application code
 COPY . .
 
 # Set environment variables
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PORT=${PORT:-8000}
-
-# Add these crucial flags for running Chrome in containerized environments
+ENV CHROME_PATH=/usr/bin/chromium
 ENV CHROME_FLAGS="--disable-dev-shm-usage --no-sandbox --headless --disable-gpu"
+ENV PORT=${PORT:-8000}
 
 # Command to run the application
 CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75 
