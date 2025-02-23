@@ -135,31 +135,59 @@ browser = Browser(
 )
 
 
+@controller.action('Click filter dropdown - ensure it is the correct one')
+async def click_filter(browser: BrowserContext):
+	elements = await browser.get_dom_elements_by_text("Locations")
+	
+	if not elements:
+		return ActionResult(error="Locations filter not found")
+
+	locations_filter = elements[0]  # Assume first instance is correct
+	await locations_filter.click()
+	return ActionResult(extracted_content="Clicked Locations filter")
+
+
+@controller.action('Scroll and find filter with max attempts')
+async def scroll_for_filter(browser: BrowserContext):
+	MAX_SCROLL_ATTEMPTS = 3
+	scroll_attempts = 0
+
+	while scroll_attempts < MAX_SCROLL_ATTEMPTS:
+		filter_element = await browser.get_dom_elements_by_text("Locations")
+		if filter_element:
+			break
+		await browser.scroll_down(1000)
+		scroll_attempts += 1
+		await asyncio.sleep(1)  # Small delay between scrolls
+
+	if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
+		return ActionResult(error="Failed to find Locations filter after scrolling")
+	
+	return ActionResult(extracted_content="Found Locations filter")
+
+
+@controller.action('Verify correct page before clicking filters')
+async def verify_page(browser: BrowserContext):
+	page_title = await browser.get_page_title()
+	if "Google Careers" not in page_title:
+		return ActionResult(error="Not on Google Careers page, retrying...")
+	return ActionResult(extracted_content="On correct page")
+
+
 async def main():
 	try:
-		# ground_task = (
-		# 	'You are a professional job finder. '
-		# 	'1. Read my cv with read_cv'
-		# 	'2. Read the saved jobs file '
-		# 	'3. start applying to the first link of Amazon '
-		# 	'You can navigate through pages e.g. by scrolling '
-		# 	'Make sure to be on the english version of the page'
-		# )
 		ground_task = (
-			'You are a professional job finder. '
-			'1. Read my cv with read_cv'
-			'find solution engineers remote roles and save them to a file'
+			'You are a professional job finder. Follow these steps:\n'
+			'1. Read my cv with read_cv\n'
+			'2. Go to Google Careers page\n'
+			'3. Verify you are on the correct page using verify_page\n'
+			'4. Use scroll_for_filter to find the Locations filter\n'
+			'5. Click the filter using click_filter\n'
+			'6. Find solution engineers remote roles and save them to a file\n'
 			'search at company:'
 		)
 		tasks = [
 			ground_task + '\n' + 'Google',
-			# ground_task + '\n' + 'Amazon',
-			# ground_task + '\n' + 'Apple',
-			# ground_task + '\n' + 'Microsoft',
-			# ground_task
-			# + '\n'
-			# + 'go to https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/Taiwan%2C-Remote/Fulfillment-Analyst---New-College-Graduate-2025_JR1988949/apply/autofillWithResume?workerSubType=0c40f6bd1d8f10adf6dae42e46d44a17&workerSubType=ab40a98049581037a3ada55b087049b7 NVIDIA',
-			# ground_task + '\n' + 'Meta',
 		]
 		model = ChatOpenAI(
 			model='gpt-4o',
