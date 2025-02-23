@@ -36,8 +36,14 @@ COPY . .
 
 # Set environment variables
 ENV CHROME_PATH=/usr/bin/chromium
-ENV CHROME_FLAGS="--disable-dev-shm-usage --no-sandbox --headless --disable-gpu"
+ENV BROWSER_USE_CHROME_PATH=/usr/bin/chromium
+ENV BROWSER_USE_LAUNCH_ARGS="--no-sandbox --disable-dev-shm-usage --headless --disable-gpu --remote-debugging-port=9222"
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PORT=${PORT:-8000}
+
+# Add these to ensure proper Chrome operation in container
+ENV PYTHONUNBUFFERED=1
+ENV DISPLAY=:99
 
 # Command to run the application
 CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75 
