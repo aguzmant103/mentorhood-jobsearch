@@ -37,7 +37,7 @@ COPY . .
 # Set environment variables
 ENV CHROME_PATH=/usr/bin/chromium
 ENV BROWSER_USE_CHROME_PATH=/usr/bin/chromium
-ENV BROWSER_USE_ARGS="--no-sandbox --disable-dev-shm-usage --headless --disable-gpu --remote-debugging-port=9222"
+ENV BROWSER_USE_ARGS="--no-sandbox --disable-dev-shm-usage --headless --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --disable-gpu"
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PORT=${PORT:-8000}
 ENV PYTHONUNBUFFERED=1

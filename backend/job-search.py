@@ -123,8 +123,10 @@ async def upload_cv(index: int, browser: BrowserContext):
 browser = Browser(
 	config=BrowserConfig(
 		chrome_instance_path=os.getenv('BROWSER_USE_CHROME_PATH', '/usr/bin/chromium'),
-		disable_security=True,  # This will handle the security flags internally
-		headless=True
+		disable_security=True,
+		headless=True,
+		debug_port=9222,
+		debug_host='0.0.0.0'
 	)
 )
 
